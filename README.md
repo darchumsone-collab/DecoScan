@@ -1,2 +1,33 @@
+
+# 🌍 DecoScan — AI Recycling Assistant
+
+
+## 🚀 Features
+
+- 📸 Camera-based waste detection
+- 🤖 TensorFlow Lite AI classification
+- 🌱 Eco impact tracking
+- 🧠 Gemini-powered environmental insights
+- 📱 Offline-first architecture
+
+## 🛠 Tech Stack
+
+- Kotlin + Jetpack Compose
+- CameraX
+- TensorFlow Lite
+- DataStore
+- Gemini API
+
+## 🌱 Mission
+
+Helping people make smarter environmental decisions through AI.
+
+## 📸 Demo
+(Add screenshots or video)
+
+## 🧠 Architecture
+See `/docs/architecture.md`
+
+---
 # DecoScan
 DecoScan by Darchums AI is an offline-first Android app that uses CameraX and TensorFlow Lite to detect waste materials like plastic, glass, paper, and metal. It tracks eco impact, works without internet, and enhances insights with AI when online for smarter disposal.
