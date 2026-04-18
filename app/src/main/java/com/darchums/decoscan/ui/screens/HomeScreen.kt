@@ -1,7 +1,8 @@
 package com.darchums.decoscan.ui.screens
 
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.ExitToApp
@@ -11,29 +12,31 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.darchums.decoscan.R
+import com.darchums.decoscan.core.EcoUtils
 import com.darchums.decoscan.data.PreferenceManager
 import com.darchums.decoscan.ui.navigation.Screen
+import com.darchums.decoscan.viewmodel.EcoViewModel
 import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(navController: NavController, onLogout: () -> Unit) {
+fun HomeScreen(navController: NavController, onLogout: () -> Unit, ecoViewModel: EcoViewModel = viewModel()) {
     val context = LocalContext.current
     val preferenceManager = remember { PreferenceManager(context) }
     var username by remember { mutableStateOf("") }
-    var ecoScore by remember { mutableIntStateOf(0) }
+    
+    val ecoStats by ecoViewModel.ecoStats.collectAsState()
 
     LaunchedEffect(Unit) {
-        val user = preferenceManager.loggedInUser.first() ?: ""
-        username = user
-        ecoScore = preferenceManager.getEcoScore(user).first()
+        username = preferenceManager.loggedInUser.first() ?: ""
     }
 
     Scaffold(
@@ -52,55 +55,46 @@ fun HomeScreen(navController: NavController, onLogout: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(24.dp),
+                .padding(horizontal = 24.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
+            // Hero Eco Card
+            EcoHeroCard(
+                score = ecoStats.ecoScore,
+                level = ecoStats.getLevel(),
+                co2Saved = ecoStats.co2Saved
+            )
+
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = "Welcome, $username!",
+                    text = "Hello, $username!",
                     style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface
+                    fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Scan Smart. Dispose Right.",
+                    text = "Ready to make an impact today?",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.secondary
                 )
             }
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text("Your Eco Score", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "$ecoScore",
-                        style = MaterialTheme.typography.displayLarge,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
+            Spacer(modifier = Modifier.height(8.dp))
 
             HomeButton(
-                text = "Scan Item",
+                text = "Scan Waste Item",
                 icon = Icons.Default.Search,
                 onClick = { navController.navigate(Screen.Camera.route) }
             )
 
             HomeButton(
-                text = "Eco Tips",
+                text = "Sustainability Tips",
                 icon = Icons.Default.Info,
                 onClick = { navController.navigate(Screen.EcoTips.route) }
             )
 
             HomeButton(
-                text = "My Profile",
+                text = "My Progress",
                 icon = Icons.Default.AccountCircle,
                 onClick = { navController.navigate(Screen.Profile.route) }
             )
@@ -109,20 +103,96 @@ fun HomeScreen(navController: NavController, onLogout: () -> Unit) {
 }
 
 @Composable
-fun HomeButton(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+fun EcoHeroCard(score: Float, level: String, co2Saved: Float) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primaryContainer,
+                            MaterialTheme.colorScheme.surface
+                        )
+                    )
+                )
+                .padding(24.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "EcoScore",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "%.1f".format(score),
+                        style = MaterialTheme.typography.displayMedium,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = level,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = EcoUtils.getCo2ImpactMessage(co2Saved),
+                        style = MaterialTheme.typography.bodySmall,
+                        lineHeight = 16.sp
+                    )
+                }
+
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.size(100.dp)) {
+                    CircularProgressIndicator(
+                        progress = { score / 100f },
+                        modifier = Modifier.fillMaxSize(),
+                        strokeWidth = 10.dp,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                    )
+                    Text(
+                        text = "${(score).toInt()}%",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun HomeButton(text: String, icon: ImageVector, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp),
-        shape = MaterialTheme.shapes.medium
+            .height(64.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+        ),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.Start,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
         ) {
-            Icon(icon, contentDescription = null)
-            Text(text, fontSize = 18.sp, fontWeight = FontWeight.Medium)
+            Icon(icon, contentDescription = null, modifier = Modifier.size(28.dp))
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(text = text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }

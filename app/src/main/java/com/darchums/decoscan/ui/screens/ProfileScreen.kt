@@ -11,30 +11,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.darchums.decoscan.data.PreferenceManager
+import com.darchums.decoscan.viewmodel.EcoViewModel
 import kotlinx.coroutines.flow.first
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileScreen(onBack: () -> Unit) {
+fun ProfileScreen(onBack: () -> Unit, ecoViewModel: EcoViewModel = viewModel()) {
     val context = LocalContext.current
     val preferenceManager = remember { PreferenceManager(context) }
     var username by remember { mutableStateOf("") }
-    var ecoScore by remember { mutableIntStateOf(0) }
-    var totalScans by remember { mutableIntStateOf(0) }
-    var materialCounts by remember { mutableStateOf(mapOf<String, Int>()) }
+    
+    val ecoStats by ecoViewModel.ecoStats.collectAsState()
 
     LaunchedEffect(Unit) {
-        val user = preferenceManager.loggedInUser.first() ?: ""
-        username = user
-        ecoScore = preferenceManager.getEcoScore(user).first()
-        totalScans = preferenceManager.getTotalScans(user).first()
-        
-        val counts = mutableMapOf<String, Int>()
-        listOf("Plastic", "Glass", "Paper", "Metal").forEach { material ->
-            counts[material] = preferenceManager.getMaterialCount(user, material).first()
-        }
-        materialCounts = counts
+        username = preferenceManager.loggedInUser.first() ?: ""
     }
 
     Scaffold(
@@ -64,13 +56,14 @@ fun ProfileScreen(onBack: () -> Unit) {
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(text = username, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-            Text(text = "Eco Warrior Level ${ (ecoScore / 20) + 1 }", color = MaterialTheme.colorScheme.secondary)
+            Text(text = "Eco Level: ${ecoStats.getLevel()}", color = MaterialTheme.colorScheme.secondary)
             
             Spacer(modifier = Modifier.height(32.dp))
             
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                StatItem(label = "Total Scans", value = totalScans.toString())
-                StatItem(label = "Eco Score", value = ecoScore.toString())
+                StatItem(label = "Total Scans", value = ecoStats.totalScans.toString())
+                StatItem(label = "Eco Score", value = "%.1f".format(ecoStats.ecoScore))
+                StatItem(label = "CO2 Saved", value = "${"%.1f".format(ecoStats.co2Saved)}g")
             }
             
             Spacer(modifier = Modifier.height(32.dp))
@@ -82,13 +75,16 @@ fun ProfileScreen(onBack: () -> Unit) {
             )
             Spacer(modifier = Modifier.height(16.dp))
             
-            materialCounts.forEach { (material, count) ->
-                MaterialRow(material, count, totalScans)
-                Spacer(modifier = Modifier.height(8.dp))
-            }
+            MaterialRow("Plastic", ecoStats.plasticCount, ecoStats.totalScans)
+            Spacer(modifier = Modifier.height(8.dp))
+            MaterialRow("Glass", ecoStats.glassCount, ecoStats.totalScans)
+            Spacer(modifier = Modifier.height(8.dp))
+            MaterialRow("Paper", ecoStats.paperCount, ecoStats.totalScans)
+            Spacer(modifier = Modifier.height(8.dp))
+            MaterialRow("Metal", ecoStats.metalCount, ecoStats.totalScans)
 
             Spacer(modifier = Modifier.weight(1f))
-            Text(text = "DecoScan v1.0.0", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            Text(text = "DecoScan v1.0.1", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
         }
     }
 }

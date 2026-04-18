@@ -1,7 +1,9 @@
 package com.darchums.decoscan.ui.screens
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -13,36 +15,56 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.darchums.decoscan.ai.GeminiService
-import com.darchums.decoscan.data.PreferenceManager
+import com.darchums.decoscan.core.EcoUtils
+import com.darchums.decoscan.domain.model.EcoTipsProvider
 import com.darchums.decoscan.domain.model.MaterialType
-import kotlinx.coroutines.flow.first
+import com.darchums.decoscan.viewmodel.EcoViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
 fun ResultScreen(
     material: String,
     confidence: Float,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    ecoViewModel: EcoViewModel = viewModel()
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val preferenceManager = remember { PreferenceManager(context) }
-    val geminiService = remember { GeminiService("YOUR_API_KEY") } // User can replace with real key
-    
+    val geminiService = remember { GeminiService("YOUR_API_KEY") }
     val materialType = remember { MaterialType.fromString(material) }
+    
     var aiInsight by remember { mutableStateOf<String?>(null) }
     var isLoadingAi by remember { mutableStateOf(true) }
+    val ecoStats by ecoViewModel.ecoStats.collectAsState()
 
-    LaunchedEffect(Unit) {
-        val username = preferenceManager.loggedInUser.first() ?: return@LaunchedEffect
-        
-        // Update local stats
-        preferenceManager.updateEcoScore(username, materialType.ecoPoints)
-        preferenceManager.incrementMaterialCount(username, materialType.name)
+    // Animated Score State
+    var animatedScore by remember { mutableFloatStateOf(0f) }
+    val scoreTransition = animateFloatAsState(
+        targetValue = animatedScore,
+        animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
+        label = "ScoreAnimation"
+    )
+
+    val pointsEarned = remember(material, confidence) {
+        val weight = when (material.lowercase()) {
+            "plastic" -> 1.0f
+            "paper" -> 1.5f
+            "glass" -> 2.0f
+            "metal" -> 2.5f
+            else -> 0.0f
+        }
+        weight * confidence
+    }
+
+    LaunchedEffect(material, confidence) {
+        // Safe update: trigger only once
+        ecoViewModel.updateEcoStats(material, confidence)
+        delay(300)
+        animatedScore = pointsEarned
         
         // Fetch AI Insight
         aiInsight = geminiService.getSustainabilityInsight(materialType, confidence)
@@ -76,16 +98,17 @@ fun ResultScreen(
         
         Card(
             modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
         ) {
             Column(
-                modifier = Modifier.padding(20.dp),
+                modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(text = "Material Detected", style = MaterialTheme.typography.labelLarge)
                 Text(
                     text = materialType.displayName,
-                    style = MaterialTheme.typography.displaySmall,
+                    style = MaterialTheme.typography.displayMedium,
                     fontWeight = FontWeight.Black,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -96,32 +119,71 @@ fun ResultScreen(
             }
         }
         
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Animated Impact Rewards
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
+        ) {
+            Row(
+                modifier = Modifier.padding(24.dp).fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ImpactRewardItem(
+                    label = "EcoScore Earned", 
+                    value = "+${"%.1f".format(scoreTransition.value)} 🌱"
+                )
+                VerticalDivider(modifier = Modifier.height(40.dp), color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.2f))
+                ImpactRewardItem(
+                    label = "Current Level", 
+                    value = ecoStats.getLevel()
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
+        
+        // Dynamic Tip based on material
+        val contextTip = remember(material) {
+            EcoTipsProvider.getAllTips().find { it.category.equals(material, ignoreCase = true) } 
+                ?: EcoTipsProvider.getRandomTip()
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text("Pro Eco Tip", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(contextTip.description, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
         
         InfoSection(title = "Disposal Instructions", content = getDisposalAdvice(materialType))
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        InfoSection(
-            title = "Environmental Impact",
-            content = "Recycling this item saves approximately ${materialType.co2Saved}kg of CO2 and earns you ${materialType.ecoPoints} Eco Points!"
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
         Card(
             modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(20.dp)) {
                 Text(
-                    text = "Darchums AI Insight",
+                    text = "Darchums AI Sustainability Insight",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 if (isLoadingAi) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.primary)
                 } else {
                     Text(
                         text = aiInsight ?: getFallbackInsight(materialType),
@@ -131,21 +193,30 @@ fun ResultScreen(
             }
         }
         
-        Spacer(modifier = Modifier.weight(1f))
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(32.dp))
         
         Button(
             onClick = onClose,
-            modifier = Modifier.fillMaxWidth().height(56.dp)
+            modifier = Modifier.fillMaxWidth().height(60.dp),
+            shape = RoundedCornerShape(16.dp)
         ) {
-            Text("Back to Home")
+            Text("Complete Mission", fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+fun ImpactRewardItem(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(text = value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiaryContainer)
+        Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f))
     }
 }
 
 @Composable
 fun InfoSection(title: String, content: String) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
         Text(text = title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         Text(text = content, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
