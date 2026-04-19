@@ -20,7 +20,7 @@
 
 ## 🌱 Mission
 
-Helping people make smarter environmental decisions through AI.
+Helping people make smarter environmental decisions through Gemini AI.
 
 ## 📸 Demo
 https://youtube.com/shorts/ioq2UvH3dTo?si=XdQXXOC1u4Egfl46
@@ -30,4 +30,4 @@ See `/docs/architecture.md`
 
 ---
 # DecoScan
-DecoScan by Darchums AI is an offline-first Android app that uses CameraX and TensorFlow Lite to detect waste materials like plastic, glass, paper, and metal. It tracks eco impact, works without internet, and enhances insights with AI when online for smarter disposal.
+DecoScan by Darchums AI is an offline-first Android app that uses CameraX and TensorFlow Lite to detect waste materials like plastic, glass, paper, wood, fabric,  ceramic, stone and metal. It tracks eco impact, works without internet, and enhances insights with Gemini AI when online for smarter disposal.
