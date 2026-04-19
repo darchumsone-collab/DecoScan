@@ -23,7 +23,7 @@
 Helping people make smarter environmental decisions through AI.
 
 ## 📸 Demo
-(Add screenshots or video)
+https://youtube.com/shorts/ioq2UvH3dTo?si=XdQXXOC1u4Egfl46
 
 ## 🧠 Architecture
 See `/docs/architecture.md`
